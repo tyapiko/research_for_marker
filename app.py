@@ -64,7 +64,7 @@ st.caption("Keepa・RainforestAPI・Claude AIで競合の弱点を発見し、�
 
 # シンプルなフロー図
 st.markdown("""
-<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 15px; margin: 20px 0;">
+<div style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); padding: 30px; border-radius: 15px; margin: 20px 0;">
     <div style="display: flex; justify-content: space-around; align-items: center; color: white;">
         <div style="text-align: center; flex: 1;">
             <div style="font-size: 48px; margin-bottom: 10px;">🔍</div>
