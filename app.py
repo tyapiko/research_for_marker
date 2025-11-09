@@ -108,19 +108,26 @@ with col2:
 with st.expander("🔧 詳細検索（オプション）"):
     st.markdown("**商品条件を絞り込む**")
 
-    # 現価格
-    col1, col2 = st.columns(2)
-    with col1:
-        price_min = st.number_input("現価格（最低）", min_value=0, value=0, step=100, key="price_min")
-    with col2:
-        price_max = st.number_input("現価格（最高）", min_value=0, value=100000, step=100, key="price_max")
+    # 現価格（スライダー）
+    price_range = st.slider(
+        "現価格（円）",
+        min_value=0,
+        max_value=100000,
+        value=(0, 100000),
+        step=1000,
+        key="price_range",
+        format="¥%d"
+    )
 
-    # 月間販売数（今月）
-    col3, col4 = st.columns(2)
-    with col3:
-        monthly_min = st.number_input("月間販売数（最低）", min_value=0, value=0, step=50, key="monthly_min")
-    with col4:
-        monthly_max = st.number_input("月間販売数（最高）", min_value=0, value=100000, step=50, key="monthly_max")
+    # 月間販売数（スライダー）
+    monthly_range = st.slider(
+        "月間販売数（個）",
+        min_value=0,
+        max_value=10000,
+        value=(0, 10000),
+        step=100,
+        key="monthly_range"
+    )
 
     # 成長トレンド（チェックボックス）
     st.markdown("##### 📈 成長トレンド")
@@ -130,36 +137,58 @@ with st.expander("🔧 詳細検索（オプション）"):
     growth_12m = st.checkbox("1年前より売れている", key="growth_12m")
     growth_24m = st.checkbox("2年前より売れている", key="growth_24m")
 
-    # ランキング（BSR）
-    col5, col6 = st.columns(2)
-    with col5:
-        bsr_min = st.number_input("ランキング（最低）", min_value=0, value=0, step=100, key="bsr_min", help="小さいほど売れている")
-    with col6:
-        bsr_max = st.number_input("ランキング（最高）", min_value=0, value=1000000, step=100, key="bsr_max")
+    # ランキング（BSR）（スライダー）
+    bsr_range = st.slider(
+        "ランキング（BSR）",
+        min_value=0,
+        max_value=100000,
+        value=(0, 100000),
+        step=1000,
+        key="bsr_range",
+        help="小さいほど売れている（1位が最高）"
+    )
 
-    # 商品評価
-    col7, col8 = st.columns(2)
-    with col7:
-        rating_min = st.number_input("商品評価（最低）", min_value=0.0, max_value=5.0, value=0.0, step=0.1, key="rating_min")
-    with col8:
-        rating_max = st.number_input("商品評価（最高）", min_value=0.0, max_value=5.0, value=5.0, step=0.1, key="rating_max")
+    # 商品評価（スライダー）
+    rating_range = st.slider(
+        "商品評価（★）",
+        min_value=0.0,
+        max_value=5.0,
+        value=(0.0, 5.0),
+        step=0.1,
+        key="rating_range"
+    )
 
-    # レビュー数
-    review_min = st.number_input("レビュー数（何件以上）", min_value=0, value=0, step=10, key="review_min")
+    # レビュー数（スライダー）
+    review_min = st.slider(
+        "レビュー数（何件以上）",
+        min_value=0,
+        max_value=5000,
+        value=0,
+        step=50,
+        key="review_min"
+    )
 
-    # 新規出品者数
-    seller_max = st.number_input("新規出品者数（何社以下）", min_value=0, value=1000, step=1, key="seller_max", help="競合が少ない商品を探す")
+    # 新規出品者数（スライダー）
+    seller_max = st.slider(
+        "新規出品者数（何社以下）",
+        min_value=0,
+        max_value=500,
+        value=500,
+        step=10,
+        key="seller_max",
+        help="競合が少ない商品を探す"
+    )
 
 # フィルタ条件を辞書に格納
 filters = {
-    'price': (price_min, price_max),
-    'monthly_current': (monthly_min, monthly_max),
+    'price': price_range,
+    'monthly_current': monthly_range,
     'growth_3m': growth_3m,
     'growth_6m': growth_6m,
     'growth_12m': growth_12m,
     'growth_24m': growth_24m,
-    'bsr': (bsr_min, bsr_max),
-    'rating': (rating_min, rating_max),
+    'bsr': bsr_range,
+    'rating': rating_range,
     'review_min': review_min,
     'seller_max': seller_max,
 }
