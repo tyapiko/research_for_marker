@@ -70,21 +70,21 @@ st.markdown("""
             <div style="font-size: 48px; margin-bottom: 10px;">🔍</div>
             <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">STEP 1</div>
             <div style="font-size: 14px;">参入すべき商品を発見</div>
-            <div style="font-size: 12px; opacity: 0.8; margin-top: 5px;">Keepa API</div>
+            <div style="font-size: 14px; opacity: 0.8; margin-top: 5px;">Keepa API</div>
         </div>
         <div style="font-size: 36px; opacity: 0.6;">→</div>
         <div style="text-align: center; flex: 1;">
             <div style="font-size: 48px; margin-bottom: 10px;">📝</div>
             <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">STEP 2</div>
             <div style="font-size: 14px;">低評価レビューを収集</div>
-            <div style="font-size: 12px; opacity: 0.8; margin-top: 5px;">RainforestAPI</div>
+            <div style="font-size: 14px; opacity: 0.8; margin-top: 5px;">RainforestAPI</div>
         </div>
         <div style="font-size: 36px; opacity: 0.6;">→</div>
         <div style="text-align: center; flex: 1;">
             <div style="font-size: 48px; margin-bottom: 10px;">👾</div>
             <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">STEP 3</div>
             <div style="font-size: 14px;">改良案を提案</div>
-            <div style="font-size: 12px; opacity: 0.8; margin-top: 5px;">Claude AI</div>
+            <div style="font-size: 14px; opacity: 0.8; margin-top: 5px;">Claude AI</div>
         </div>
     </div>
 </div>
