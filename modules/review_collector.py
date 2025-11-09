@@ -62,7 +62,8 @@ class ReviewCollector:
                 'asin': asin,
                 'page': 1,
                 'max_page': max_page,
-                'sort_by': sort_by  # 'recent' or 'helpful'
+                'sort_by': sort_by,  # 'recent' or 'helpful'
+                'star_rating': 'critical'  # ★1〜3のみ取得
             }
 
             print(f"[INFO] レビューを取得中... (最大{max_page}ページ)")
