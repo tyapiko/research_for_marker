@@ -81,7 +81,7 @@ st.markdown("""
         </div>
         <div style="font-size: 36px; opacity: 0.6;">→</div>
         <div style="text-align: center; flex: 1;">
-            <div style="font-size: 48px; margin-bottom: 10px;">🤖</div>
+            <div style="font-size: 48px; margin-bottom: 10px;">👾</div>
             <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">STEP 3</div>
             <div style="font-size: 14px;">改良案を提案</div>
             <div style="font-size: 12px; opacity: 0.8; margin-top: 5px;">Claude AI</div>
