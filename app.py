@@ -99,7 +99,43 @@ if search_button and search_term:
                 else:
                     st.warning("⚠️ 条件に合う商品が見つかりませんでした。キーワードを変えてみてください。")
             except Exception as e:
-                st.error(f"❌ エラーが発生しました: {str(e)}")
+                error_msg = str(e)
+
+                # Keepa APIのタイムアウトエラー
+                if "Read timed out" in error_msg or "timeout" in error_msg.lower():
+                    st.error("❌ **Keepa APIへの接続がタイムアウトしました**")
+                    st.info("""
+                    **考えられる原因：**
+                    - Keepa APIのサーバーが混雑している
+                    - ネットワーク接続が不安定
+
+                    **対処方法：**
+                    - 数分待ってから再度検索してください
+                    - それでも解決しない場合は、Keepa APIの状態を確認してください
+                    """)
+
+                # Keepa APIのトークン制限エラー
+                elif "token" in error_msg.lower() or "waiting" in error_msg.lower():
+                    st.error("❌ **Keepa APIのトークン制限に達しました**")
+                    st.warning("""
+                    **Keepa API無料プランの制限：**
+                    - 1トークン/分の制限があります
+                    - 連続して検索すると、次のトークンが回復するまで待機が必要です
+
+                    **対処方法：**
+                    - 約30分後に再度検索してください
+                    - または、Keepa APIの有料プランへのアップグレードをご検討ください
+                    """)
+
+                # その他のエラー
+                else:
+                    st.error(f"❌ エラーが発生しました: {error_msg}")
+                    st.info("""
+                    **トラブルシューティング：**
+                    - APIキーが正しく設定されているか確認してください
+                    - インターネット接続を確認してください
+                    - 数分待ってから再試行してください
+                    """)
 
 # 結果表示
 if st.session_state.search_results is not None and len(st.session_state.search_results) > 0:
@@ -110,97 +146,101 @@ if st.session_state.search_results is not None and len(st.session_state.search_r
     # 上位5件のみ取得
     top5_results = st.session_state.search_results.head(5)
 
-    # 各商品を詳細表示
-    for idx, (_, row) in enumerate(top5_results.iterrows(), 1):
-        title = row['title'] if row['title'] else "商品名取得中..."
+    # テーブル形式でサマリー表示
+    st.markdown("### 📊 商品比較テーブル")
 
+    # データフレーム用に整形
+    table_data = []
+    for idx, (_, row) in enumerate(top5_results.iterrows(), 1):
         # 推奨度の判定
         score = row.get('product_score', 0)
         if score >= 80:
+            recommendation = "🔥超推奨"
+        elif score >= 60:
+            recommendation = "⭐推奨"
+        elif score >= 40:
+            recommendation = "✅検討"
+        else:
+            recommendation = "⚠️要注意"
+
+        table_data.append({
+            '順位': f"{idx}位 {recommendation}",
+            '商品名': row['title'][:40] + "..." if len(row['title']) > 40 else row['title'],
+            'スコア': f"{score}点",
+            '現単価': f"¥{row['price']:,.0f}" if row['price'] > 0 else "-",
+            '最安': f"¥{row.get('lowest_price', 0):,.0f}" if row.get('lowest_price', 0) > 0 else "-",
+            '新規数': f"{row.get('seller_count', 0)}社",
+            'レビュー': f"{row.get('review_count', 0):,}件",
+            '評価': f"⭐{row['rating']:.1f}",
+            'BSR': f"{row.get('current_rank', 0):,}" if row.get('current_rank', 0) > 0 else "-",
+            '今月販売': f"{row.get('monthly_sold_current', 0):,}個",
+            '6ヶ月前': f"{row.get('monthly_sold_6m_ago', 0):,}個" if row.get('monthly_sold_6m_ago', 0) > 0 else "-",
+            '1年前': f"{row.get('monthly_sold_12m_ago', 0):,}個" if row.get('monthly_sold_12m_ago', 0) > 0 else "-"
+        })
+
+    df_table = pd.DataFrame(table_data)
+    st.dataframe(df_table, use_container_width=True, height=250)
+
+    st.divider()
+
+    # 各商品の詳細を展開可能に
+    st.markdown("### 📋 商品詳細（総合評価の内訳）")
+
+    for idx, (_, row) in enumerate(top5_results.iterrows(), 1):
+        title = row['title'] if row['title'] else "商品名取得中..."
+        score = row.get('product_score', 0)
+
+        # 推奨度の判定
+        if score >= 80:
             recommendation = "🔥 超推奨"
-            rec_color = "red"
         elif score >= 60:
             recommendation = "⭐ 推奨"
-            rec_color = "orange"
         elif score >= 40:
             recommendation = "✅ 検討価値あり"
-            rec_color = "blue"
         else:
             recommendation = "⚠️ 要慎重検討"
-            rec_color = "gray"
 
-        with st.expander(f"🏆 {idx}位: {title[:60]}... | スコア: {score}点 | {recommendation}", expanded=(idx == 1)):
-            # 基本情報
-            col1, col2, col3 = st.columns(3)
-
-            with col1:
-                st.metric("商品選定スコア", f"{score}点 / 100点")
-                st.caption(f"推奨度: {recommendation}")
-
-            with col2:
-                # 価格（既に円で取得済み）
-                price = row['price']
-                st.metric("価格", f"¥{price:,.0f}" if price > 0 else "-")
-                st.metric("評価", f"⭐ {row['rating']:.1f}")
-
-            with col3:
-                monthly_sold = row.get('monthly_sold_current', 0)
-                st.metric("月間販売数", f"{monthly_sold:,}個" if monthly_sold > 0 else "-")
-                seller_count = row.get('seller_count', 0)
-                st.metric("新品出品者数", f"{seller_count}社" if seller_count > 0 else "データなし")
+        with st.expander(f"🏆 {idx}位: {title[:50]}... | スコア: {score}点", expanded=(idx == 1)):
+            # Amazon商品ページリンク
+            amazon_url = f"https://www.amazon.co.jp/dp/{row['asin']}"
+            st.markdown(f"🔗 [Amazonで商品を見る]({amazon_url}) | ASIN: `{row['asin']}` | {recommendation}")
 
             st.divider()
 
-            # スコア詳細
-            st.markdown("##### 📊 スコア内訳")
+            # 総合評価の内訳
+            st.markdown("##### 📊 総合評価の内訳")
             score_col1, score_col2, score_col3, score_col4 = st.columns(4)
 
             with score_col1:
                 trend_score = row.get('trend_score', 0)
-                st.metric("販売トレンド", f"{trend_score}/40点")
+                st.metric("📈 販売トレンド", f"{trend_score}/40点")
                 st.caption("成長率が高いほど高得点")
+                growth = row.get('sales_growth_rate', 0)
+                st.caption(f"成長率: {growth:+.1f}%")
 
             with score_col2:
                 market_score = row.get('market_score', 0)
-                st.metric("市場規模", f"{market_score}/30点")
+                st.metric("💰 市場規模", f"{market_score}/30点")
                 st.caption("販売数が多いほど高得点")
+                st.caption(f"月間: {row.get('monthly_sold_current', 0):,}個")
 
             with score_col3:
                 improvement_score = row.get('improvement_score', 0)
-                st.metric("改善余地", f"{improvement_score}/20点")
+                st.metric("🔧 改善余地", f"{improvement_score}/20点")
                 st.caption("評価が低いほど高得点")
+                st.caption(f"評価: ⭐{row['rating']:.1f}")
 
             with score_col4:
                 entry_score = row.get('entry_score', 0)
-                st.metric("参入難易度", f"{entry_score}/10点")
+                st.metric("🚪 参入難易度", f"{entry_score}/10点")
                 st.caption("競合が少ないほど高得点")
+                st.caption(f"新規: {row.get('seller_count', 0)}社")
 
             st.divider()
 
-            # 詳細データ
-            st.markdown("##### 📈 販売数推移")
-            sales_col1, sales_col2, sales_col3 = st.columns(3)
-
-            with sales_col1:
-                st.metric("現在", f"{row.get('monthly_sold_current', 0):,}個/月")
-
-            with sales_col2:
-                sold_6m = row.get('monthly_sold_6m_ago', 0)
-                st.metric("6ヶ月前", f"{sold_6m:,}個/月" if sold_6m > 0 else "データなし")
-
-            with sales_col3:
-                sold_12m = row.get('monthly_sold_12m_ago', 0)
-                st.metric("12ヶ月前", f"{sold_12m:,}個/月" if sold_12m > 0 else "データなし")
-
-            # Amazon商品ページリンク
-            amazon_url = f"https://www.amazon.co.jp/dp/{row['asin']}"
-            st.markdown(f"🔗 [Amazonで商品を見る]({amazon_url}) | ASIN: `{row['asin']}`")
-
-            st.divider()
-
-            # レビュー収集セクション（商品ごと）
-            st.markdown("##### 📝 レビュー収集と分析")
-            st.caption("低評価レビュー優先で取得・分析します（AI分析用）")
+            # レビュー収集セクション
+            st.markdown("##### 📝 レビュー収集")
+            st.caption("⭐最新50件のレビューを取得（低評価優先ソート）")
 
             if rainforest_key:
                 # 既に収集済みかチェック
@@ -238,26 +278,55 @@ if st.session_state.search_results is not None and len(st.session_state.search_r
                             if review.get('title'):
                                 st.markdown(f"**{review['title']}**")
 
-                            body_preview = review.get('body', '')[:100]
-                            if len(review.get('body', '')) > 100:
-                                body_preview += "..."
-                            st.caption(body_preview)
+                            body = review.get('body', '')
+                            if len(body) > 200:
+                                st.caption(body[:200] + "...")
+                            else:
+                                st.caption(body)
 
                             if i < len(preview_reviews):
                                 st.markdown("---")
 
                 else:
-                    if st.button("📝 レビューを収集", key=f"review_{row['asin']}", use_container_width=True, type="secondary"):
-                        with st.spinner("収集中..."):
+                    if st.button("📝 レビューを収集（最新50件）", key=f"review_{row['asin']}", use_container_width=True, type="secondary"):
+                        with st.spinner("収集中...（reviewsエンドポイント使用）"):
                             try:
                                 from modules.review_collector import ReviewCollector
                                 collector = ReviewCollector(rainforest_key)
-                                reviews = collector.collect_reviews(row['asin'], target_count=100)
+                                reviews = collector.collect_reviews(row['asin'], target_count=50)
                                 st.session_state.collected_reviews[row['asin']] = reviews
-                                st.success(f"✅ {len(reviews)}件収集完了！")
+
+                                # 収集件数に応じてメッセージを変更
+                                if len(reviews) >= 40:
+                                    st.success(f"✅ {len(reviews)}件収集完了！（reviewsエンドポイント）")
+                                elif len(reviews) >= 10:
+                                    st.success(f"✅ {len(reviews)}件収集完了！")
+                                    st.info("💡 RainforestAPIの無料プランでは約10-20件のレビューが取得できます。より多くのレビューが必要な場合は有料プランをご検討ください。")
+                                else:
+                                    st.warning(f"⚠️ {len(reviews)}件のレビューを収集しましたが、予想より少ない可能性があります。")
+
                                 st.rerun()
                             except Exception as e:
-                                st.error(f"❌ エラー: {str(e)}")
+                                error_msg = str(e)
+                                st.error(f"❌ レビュー収集エラー: {error_msg}")
+
+                                # RainforestAPIのエラーメッセージを分かりやすく表示
+                                if "両方失敗" in error_msg:
+                                    st.warning("""
+                                    **レビュー取得に失敗しました**
+
+                                    **考えられる原因：**
+                                    - RainforestAPIのクレジットが不足している
+                                    - この商品にレビューが存在しない
+                                    - API接続の問題
+
+                                    **対処方法：**
+                                    - RainforestAPIの残クレジットを確認してください
+                                    - 別の商品で試してみてください
+                                    - 数分待ってから再試行してください
+                                    """)
+                                else:
+                                    st.info("数分待ってから再試行してください。")
             else:
                 st.warning("⚠️ RainforestAPIキーを設定してください")
 

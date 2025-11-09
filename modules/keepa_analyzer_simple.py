@@ -18,7 +18,7 @@ class KeepaAnalyzerSimple:
             api_key (str): Keepa APIキー
             rainforest_api_key (str): RainforestAPI キー（動的検索用）
         """
-        self.api = keepa.Keepa(api_key)
+        self.api = keepa.Keepa(api_key, timeout=60)  # タイムアウトを60秒に延長
         self.rainforest_api_key = rainforest_api_key
 
     def _search_asins_with_rainforest(self, keyword, max_results=10):
@@ -167,19 +167,31 @@ class KeepaAnalyzerSimple:
 
                     # 価格取得（シンプル版）
                     price = 0
+                    lowest_price = 0
                     try:
                         if 'NEW' in product.get('data', {}):
                             new_prices = product['data']['NEW']
                             if isinstance(new_prices, np.ndarray):
                                 new_prices = new_prices.tolist()
+
+                            valid_prices = []
                             # 最後の有効な価格を取得（nanをスキップ）
                             # Keepa APIは価格を100で割った値で返すため、100倍して円に変換
                             for p in reversed(new_prices):
                                 if isinstance(p, (int, float)) and not np.isnan(p) and p > 0:
                                     price = int(p * 100)  # 円に変換（例: 24.03 → 2403円）
                                     break
+
+                            # 過去最安単価を取得（全価格データから最小値）
+                            for p in new_prices:
+                                if isinstance(p, (int, float)) and not np.isnan(p) and p > 0:
+                                    valid_prices.append(int(p * 100))
+
+                            if len(valid_prices) > 0:
+                                lowest_price = min(valid_prices)
                     except:
                         price = 0
+                        lowest_price = 0
 
                     # レビュー数（dataから取得）
                     review_count = 0
@@ -351,6 +363,7 @@ class KeepaAnalyzerSimple:
                         'asin': asin,
                         'title': title,
                         'price': price,
+                        'lowest_price': lowest_price,
                         'review_count': review_count,
                         'rating': rating,
                         'current_rank': current_rank,
