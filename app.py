@@ -206,7 +206,7 @@ if search_button and search_term:
 
                 # フィルタリング処理
                 filtered_results = []
-                for product in results:
+                for _, product in results.iterrows():
                     # 価格
                     if not (filters['price'][0] <= product.get('price', 0) <= filters['price'][1]):
                         continue
@@ -266,7 +266,11 @@ if search_button and search_term:
                     filtered_results.append(product)
 
                 if len(filtered_results) > 0:
-                    st.session_state.search_results = filtered_results
+                    # DataFrameに変換してソート
+                    import pandas as pd
+                    df = pd.DataFrame(filtered_results)
+                    df = df.sort_values('product_score', ascending=False).reset_index(drop=True)
+                    st.session_state.search_results = df
                     st.success(f"✅ {len(filtered_results)}件の参入候補商品を発見しました！（商品選定スコア順に表示）")
                     if len(results) > len(filtered_results):
                         st.info(f"💡 詳細検索フィルタにより、{len(results) - len(filtered_results)}件の商品が除外されました")
