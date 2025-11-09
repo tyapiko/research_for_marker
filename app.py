@@ -60,13 +60,35 @@ with st.sidebar:
 
 # メインエリア
 st.title("🎯 Amazon商品参入判定ツール")
-st.markdown("""
-**月間販売数トレンド**と**競合分析**で「参入すべき商品」を自動判定！
+st.caption("Keepa・RainforestAPI・Claude AIで競合の弱点を発見し、改良版商品を提案")
 
-- 💰 **月間販売数トレンド**: Keepa APIから実際の販売数を取得
-- 📊 **商品選定スコア**: 販売トレンド・市場規模・改善余地・競合を100点満点で評価
-- 🤖 **AI分析**: Claude Sonnet 4.5が★3以下の低評価レビューから問題点を抽出
-""")
+# シンプルなフロー図
+st.markdown("""
+<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 15px; margin: 20px 0;">
+    <div style="display: flex; justify-content: space-around; align-items: center; color: white;">
+        <div style="text-align: center; flex: 1;">
+            <div style="font-size: 48px; margin-bottom: 10px;">🔍</div>
+            <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">STEP 1</div>
+            <div style="font-size: 14px;">参入すべき商品を発見</div>
+            <div style="font-size: 12px; opacity: 0.8; margin-top: 5px;">Keepa API</div>
+        </div>
+        <div style="font-size: 36px; opacity: 0.6;">→</div>
+        <div style="text-align: center; flex: 1;">
+            <div style="font-size: 48px; margin-bottom: 10px;">📝</div>
+            <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">STEP 2</div>
+            <div style="font-size: 14px;">低評価レビューを収集</div>
+            <div style="font-size: 12px; opacity: 0.8; margin-top: 5px;">RainforestAPI</div>
+        </div>
+        <div style="font-size: 36px; opacity: 0.6;">→</div>
+        <div style="text-align: center; flex: 1;">
+            <div style="font-size: 48px; margin-bottom: 10px;">🤖</div>
+            <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">STEP 3</div>
+            <div style="font-size: 14px;">改良案を提案</div>
+            <div style="font-size: 12px; opacity: 0.8; margin-top: 5px;">Claude AI</div>
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 # 検索セクション
 st.divider()
