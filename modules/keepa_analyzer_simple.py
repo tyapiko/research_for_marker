@@ -253,8 +253,10 @@ class KeepaAnalyzerSimple:
 
                     # 月間販売数トレンド計算
                     monthly_sold_current = 0
+                    monthly_sold_3m_ago = 0
                     monthly_sold_6m_ago = 0
                     monthly_sold_12m_ago = 0
+                    monthly_sold_24m_ago = 0
                     sales_growth_rate = 0
 
                     try:
@@ -266,15 +268,27 @@ class KeepaAnalyzerSimple:
                             history = product['monthlySoldHistory']
 
                             # 偶数インデックス：タイムスタンプ、奇数インデックス：販売数
-                            # 最新から遡って6ヶ月前と12ヶ月前のデータを探す
+                            # 最新から遡って3ヶ月前、6ヶ月前、12ヶ月前、2年前のデータを探す
                             if len(history) >= 2:
                                 # 現在のタイムスタンプ（最新）
                                 current_time = history[-2] if len(history) >= 2 else 0
 
+                                # 3ヶ月 = 約90日 = 90 * 24 * 60 = 129600分
                                 # 6ヶ月 = 約180日 = 180 * 24 * 60 = 259200分
                                 # 12ヶ月 = 約365日 = 365 * 24 * 60 = 525600分
+                                # 24ヶ月 = 約730日 = 730 * 24 * 60 = 1051200分
+                                target_3m = current_time - 129600
                                 target_6m = current_time - 259200
                                 target_12m = current_time - 525600
+                                target_24m = current_time - 1051200
+
+                                # 3ヶ月前の販売数を探す
+                                for i in range(len(history) - 2, 0, -2):
+                                    timestamp = history[i]
+                                    sales = history[i + 1]
+                                    if timestamp <= target_3m:
+                                        monthly_sold_3m_ago = sales
+                                        break
 
                                 # 6ヶ月前の販売数を探す
                                 for i in range(len(history) - 2, 0, -2):
@@ -290,6 +304,14 @@ class KeepaAnalyzerSimple:
                                     sales = history[i + 1]
                                     if timestamp <= target_12m:
                                         monthly_sold_12m_ago = sales
+                                        break
+
+                                # 24ヶ月前（2年前）の販売数を探す
+                                for i in range(len(history) - 2, 0, -2):
+                                    timestamp = history[i]
+                                    sales = history[i + 1]
+                                    if timestamp <= target_24m:
+                                        monthly_sold_24m_ago = sales
                                         break
 
                         # 販売数成長率を計算（6ヶ月前→現在）
@@ -369,8 +391,10 @@ class KeepaAnalyzerSimple:
                         'current_rank': current_rank,
                         'seller_count': seller_count,
                         'monthly_sold_current': monthly_sold_current,
+                        'monthly_sold_3m_ago': monthly_sold_3m_ago,
                         'monthly_sold_6m_ago': monthly_sold_6m_ago,
                         'monthly_sold_12m_ago': monthly_sold_12m_ago,
+                        'monthly_sold_24m_ago': monthly_sold_24m_ago,
                         'sales_growth_rate': sales_growth_rate,
                         'product_score': product_score,
                         'trend_score': trend_score,

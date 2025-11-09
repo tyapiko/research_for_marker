@@ -104,6 +104,66 @@ with col2:
     st.write("")
     search_button = st.button("🔍 検索", type="primary", use_container_width=True)
 
+# 詳細検索フィルタ（折りたたみ式）
+with st.expander("🔧 詳細検索（オプション）"):
+    st.markdown("**商品条件を絞り込む**")
+
+    # 現価格
+    col1, col2 = st.columns(2)
+    with col1:
+        price_min = st.number_input("現価格（最低）", min_value=0, value=0, step=100, key="price_min")
+    with col2:
+        price_max = st.number_input("現価格（最高）", min_value=0, value=100000, step=100, key="price_max")
+
+    # 月間販売数（今月）
+    col3, col4 = st.columns(2)
+    with col3:
+        monthly_min = st.number_input("月間販売数（最低）", min_value=0, value=0, step=50, key="monthly_min")
+    with col4:
+        monthly_max = st.number_input("月間販売数（最高）", min_value=0, value=100000, step=50, key="monthly_max")
+
+    # 成長トレンド（チェックボックス）
+    st.markdown("##### 📈 成長トレンド")
+    st.caption("チェックした場合、その期間より売上が伸びている商品のみ表示")
+    growth_3m = st.checkbox("3ヶ月前より売れている", key="growth_3m")
+    growth_6m = st.checkbox("6ヶ月前より売れている", key="growth_6m")
+    growth_12m = st.checkbox("1年前より売れている", key="growth_12m")
+    growth_24m = st.checkbox("2年前より売れている", key="growth_24m")
+
+    # ランキング（BSR）
+    col5, col6 = st.columns(2)
+    with col5:
+        bsr_min = st.number_input("ランキング（最低）", min_value=0, value=0, step=100, key="bsr_min", help="小さいほど売れている")
+    with col6:
+        bsr_max = st.number_input("ランキング（最高）", min_value=0, value=1000000, step=100, key="bsr_max")
+
+    # 商品評価
+    col7, col8 = st.columns(2)
+    with col7:
+        rating_min = st.number_input("商品評価（最低）", min_value=0.0, max_value=5.0, value=0.0, step=0.1, key="rating_min")
+    with col8:
+        rating_max = st.number_input("商品評価（最高）", min_value=0.0, max_value=5.0, value=5.0, step=0.1, key="rating_max")
+
+    # レビュー数
+    review_min = st.number_input("レビュー数（何件以上）", min_value=0, value=0, step=10, key="review_min")
+
+    # 新規出品者数
+    seller_max = st.number_input("新規出品者数（何社以下）", min_value=0, value=1000, step=1, key="seller_max", help="競合が少ない商品を探す")
+
+# フィルタ条件を辞書に格納
+filters = {
+    'price': (price_min, price_max),
+    'monthly_current': (monthly_min, monthly_max),
+    'growth_3m': growth_3m,
+    'growth_6m': growth_6m,
+    'growth_12m': growth_12m,
+    'growth_24m': growth_24m,
+    'bsr': (bsr_min, bsr_max),
+    'rating': (rating_min, rating_max),
+    'review_min': review_min,
+    'seller_max': seller_max,
+}
+
 # 検索実行
 if search_button and search_term:
     if not keepa_key:
@@ -115,11 +175,76 @@ if search_button and search_term:
                 analyzer = KeepaAnalyzerSimple(keepa_key, rainforest_api_key=rainforest_key)
                 results = analyzer.search_products(search_term)
 
-                if len(results) > 0:
-                    st.session_state.search_results = results
-                    st.success(f"✅ {len(results)}件の参入候補商品を発見しました！（商品選定スコア順に表示）")
+                # フィルタリング処理
+                filtered_results = []
+                for product in results:
+                    # 価格
+                    if not (filters['price'][0] <= product.get('price', 0) <= filters['price'][1]):
+                        continue
+
+                    # 月間販売数（今月）
+                    if not (filters['monthly_current'][0] <= product.get('monthly_sold_current', 0) <= filters['monthly_current'][1]):
+                        continue
+
+                    # 成長トレンド（チェックボックス）
+                    if filters['growth_3m']:
+                        # 3ヶ月前より売れているかチェック
+                        current = product.get('monthly_sold_current', 0)
+                        past_3m = product.get('monthly_sold_3m_ago', 0)
+                        if past_3m > 0 and current <= past_3m:
+                            continue  # 成長していない
+
+                    if filters['growth_6m']:
+                        # 6ヶ月前より売れているかチェック
+                        current = product.get('monthly_sold_current', 0)
+                        past_6m = product.get('monthly_sold_6m_ago', 0)
+                        if past_6m > 0 and current <= past_6m:
+                            continue  # 成長していない
+
+                    if filters['growth_12m']:
+                        # 1年前より売れているかチェック
+                        current = product.get('monthly_sold_current', 0)
+                        past_12m = product.get('monthly_sold_12m_ago', 0)
+                        if past_12m > 0 and current <= past_12m:
+                            continue  # 成長していない
+
+                    if filters['growth_24m']:
+                        # 2年前より売れているかチェック
+                        current = product.get('monthly_sold_current', 0)
+                        past_24m = product.get('monthly_sold_24m_ago', 0)
+                        if past_24m > 0 and current <= past_24m:
+                            continue  # 成長していない
+
+                    # BSR（ランキング）
+                    bsr = product.get('current_rank', 0)
+                    if bsr > 0:  # BSRが0の場合はデータなしなのでスキップしない
+                        if not (filters['bsr'][0] <= bsr <= filters['bsr'][1]):
+                            continue
+
+                    # 評価
+                    if not (filters['rating'][0] <= product.get('rating', 0) <= filters['rating'][1]):
+                        continue
+
+                    # レビュー数（何件以上）
+                    if product.get('review_count', 0) < filters['review_min']:
+                        continue
+
+                    # 新規出品者数（何社以下）
+                    if product.get('seller_count', 0) > filters['seller_max']:
+                        continue
+
+                    # すべての条件を満たした商品を追加
+                    filtered_results.append(product)
+
+                if len(filtered_results) > 0:
+                    st.session_state.search_results = filtered_results
+                    st.success(f"✅ {len(filtered_results)}件の参入候補商品を発見しました！（商品選定スコア順に表示）")
+                    if len(results) > len(filtered_results):
+                        st.info(f"💡 詳細検索フィルタにより、{len(results) - len(filtered_results)}件の商品が除外されました")
                 else:
-                    st.warning("⚠️ 条件に合う商品が見つかりませんでした。キーワードを変えてみてください。")
+                    st.warning("⚠️ 条件に合う商品が見つかりませんでした。キーワードやフィルタ条件を変えてみてください。")
+                    if len(results) > 0:
+                        st.info(f"💡 {len(results)}件の商品が見つかりましたが、詳細検索フィルタの条件を満たしませんでした")
             except Exception as e:
                 error_msg = str(e)
 
@@ -195,9 +320,11 @@ if st.session_state.search_results is not None and len(st.session_state.search_r
             'レビュー': f"{row.get('review_count', 0):,}件",
             '評価': f"⭐{row['rating']:.1f}",
             'BSR': f"{row.get('current_rank', 0):,}" if row.get('current_rank', 0) > 0 else "-",
-            '今月販売': f"{row.get('monthly_sold_current', 0):,}個",
+            '今月': f"{row.get('monthly_sold_current', 0):,}個",
+            '3ヶ月前': f"{row.get('monthly_sold_3m_ago', 0):,}個" if row.get('monthly_sold_3m_ago', 0) > 0 else "-",
             '6ヶ月前': f"{row.get('monthly_sold_6m_ago', 0):,}個" if row.get('monthly_sold_6m_ago', 0) > 0 else "-",
-            '1年前': f"{row.get('monthly_sold_12m_ago', 0):,}個" if row.get('monthly_sold_12m_ago', 0) > 0 else "-"
+            '1年前': f"{row.get('monthly_sold_12m_ago', 0):,}個" if row.get('monthly_sold_12m_ago', 0) > 0 else "-",
+            '2年前': f"{row.get('monthly_sold_24m_ago', 0):,}個" if row.get('monthly_sold_24m_ago', 0) > 0 else "-"
         })
 
     df_table = pd.DataFrame(table_data)
@@ -244,7 +371,15 @@ if st.session_state.search_results is not None and len(st.session_state.search_r
                 market_score = row.get('market_score', 0)
                 st.metric("💰 市場規模", f"{market_score}/30点")
                 st.caption("販売数が多いほど高得点")
-                st.caption(f"月間: {row.get('monthly_sold_current', 0):,}個")
+                st.caption(f"今月: {row.get('monthly_sold_current', 0):,}個")
+                if row.get('monthly_sold_3m_ago', 0) > 0:
+                    st.caption(f"3ヶ月前: {row.get('monthly_sold_3m_ago', 0):,}個")
+                if row.get('monthly_sold_6m_ago', 0) > 0:
+                    st.caption(f"6ヶ月前: {row.get('monthly_sold_6m_ago', 0):,}個")
+                if row.get('monthly_sold_12m_ago', 0) > 0:
+                    st.caption(f"1年前: {row.get('monthly_sold_12m_ago', 0):,}個")
+                if row.get('monthly_sold_24m_ago', 0) > 0:
+                    st.caption(f"2年前: {row.get('monthly_sold_24m_ago', 0):,}個")
 
             with score_col3:
                 improvement_score = row.get('improvement_score', 0)
