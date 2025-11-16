@@ -12,6 +12,8 @@ import os
 from modules.keepa_analyzer_simple import KeepaAnalyzerSimple
 from modules.review_collector import ReviewCollector
 from modules.claude_analyzer import ClaudeAnalyzer
+from modules.progress_tracker import ProgressTracker
+from data.sample_data import get_sample_data
 
 # 環境変数読み込み
 load_dotenv()
@@ -48,6 +50,14 @@ if 'collected_reviews' not in st.session_state:
     st.session_state.collected_reviews = {}
 if 'analysis' not in st.session_state:
     st.session_state.analysis = None
+if 'onboarding_completed' not in st.session_state:
+    st.session_state.onboarding_completed = False
+if 'show_onboarding' not in st.session_state:
+    st.session_state.show_onboarding = True
+if 'show_sample_mode' not in st.session_state:
+    st.session_state.show_sample_mode = False
+if 'sample_data_loaded' not in st.session_state:
+    st.session_state.sample_data_loaded = False
 
 # サイドバー：API設定
 with st.sidebar:
@@ -88,6 +98,134 @@ with st.sidebar:
 # メインエリア
 st.title("🎯 Amazon商品参入判定ツール")
 st.caption("Keepa・RainforestAPI・Claude AIで競合の弱点を発見し、改良版商品を提案")
+
+# オンボーディングフロー（初回訪問時）
+if not st.session_state.onboarding_completed and st.session_state.show_onboarding:
+    with st.expander("🎓 初めての方へ（5分で使い方をマスター）", expanded=True):
+        tabs = st.tabs(["① 使い方", "② サンプル体験", "③ API設定"])
+
+        with tabs[0]:
+            st.markdown("""
+            ### 🎯 このツールで何ができる？
+
+            Amazon商品の**参入すべきか判断**を自動化します：
+
+            - 🔍 **キーワード検索**: 入力するだけで参入候補商品を発見
+            - 📊 **自動スコアリング**: 100点満点で客観的に評価
+            - 💡 **AI分析**: 低評価レビューから改善点を抽出
+            - 💰 **収益性計算**: 利益予測で参入判断を支援
+
+            ---
+
+            ### 📝 3ステップで完結
+
+            **STEP 1**: キーワード入力 → 検索ボタン
+            → 参入すべき商品を発見（売上・成長率・競合数から自動スコアリング）
+
+            **STEP 2**: 上位商品の「レビュー収集」ボタン
+            → 低評価レビューを優先的に取得
+
+            **STEP 3**: 「AI分析」ボタン
+            → Claude AIが問題点を6カテゴリに分類、改善提案を生成
+
+            ---
+
+            ### ⏱️ 所要時間
+
+            - 検索: 30-60秒
+            - レビュー収集: 15-30秒/商品
+            - AI分析: 20-40秒
+
+            **合計**: 1商品あたり約2-3分で完了！
+            """)
+
+        with tabs[1]:
+            st.markdown("""
+            ### 🎬 サンプルデータで体験
+
+            APIキーがなくても、サンプルデータで実際のツールを体験できます。
+
+            **「ヨガマット」の実際の分析結果**を表示します：
+            - 10商品のスコアリング結果
+            - レビュー分析
+            - AI改善提案
+
+            操作感を確かめてから、APIキーを設定してください。
+            """)
+
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("🎯 サンプルデータを表示", type="primary", use_container_width=True):
+                    st.session_state.onboarding_completed = True
+                    st.session_state.show_sample_mode = True
+                    st.rerun()
+            with col2:
+                if st.button("スキップ", use_container_width=True):
+                    st.session_state.onboarding_completed = True
+                    st.session_state.show_onboarding = False
+                    st.rerun()
+
+        with tabs[2]:
+            st.markdown("""
+            ### 🔑 APIキーの設定方法
+
+            このツールは3つのAPIを使用します：
+
+            #### 1. Keepa API（商品データ取得）
+            - [Keepa公式サイト](https://keepa.com/#!api) で無料アカウント作成
+            - 無料プラン: 1トークン/分（検索10商品=1トークン）
+            - 推奨: Basic Plan（月$19, 100トークン/分）
+
+            #### 2. RainforestAPI（ASIN検索・レビュー取得）
+            - [RainforestAPI公式](https://www.rainforestapi.com/) で無料クレジット取得
+            - 無料: $100クレジット（約200検索分）
+            - 推奨: Starter Plan（月$29）
+
+            #### 3. Claude API（AI分析）
+            - [Anthropic Console](https://console.anthropic.com/) でキー発行
+            - 無料: $5クレジット
+            - 推奨: 従量課金（分析1回=約$0.1）
+
+            ---
+
+            #### ✅ 設定方法
+
+            **方法1**: 左サイドバーに直接入力（簡単、非推奨）
+            **方法2**: `.env` ファイルに保存（推奨）
+            **方法3**: Streamlit Secrets（本番環境で推奨）
+
+            詳細: [SECURITY_SETUP.md](SECURITY_SETUP.md)
+            """)
+
+            if st.button("理解しました", type="primary", use_container_width=True):
+                st.session_state.onboarding_completed = True
+                st.session_state.show_onboarding = False
+                st.rerun()
+
+# サンプルデータモード
+if st.session_state.show_sample_mode and not st.session_state.sample_data_loaded:
+    st.info("🎬 サンプルデータを読み込んでいます...")
+    sample_data = get_sample_data()
+
+    # サンプルデータをセッション状態に保存
+    st.session_state.search_results = sample_data['products']
+    st.session_state.collected_reviews = sample_data['reviews']
+    st.session_state.analysis = sample_data['analysis']
+    st.session_state.sample_data_loaded = True
+
+    st.success("✅ サンプルデータ「ヨガマット」を読み込みました！実際のツールと同じように操作できます。")
+    st.balloons()
+
+# サンプルモードの表示
+if st.session_state.show_sample_mode:
+    st.warning("""
+    🎬 **サンプルデータモード**
+
+    これは「ヨガマット」の実際の分析結果です。
+    APIキーを設定すると、他のキーワードでも分析できます。
+
+    [サンプルモードを終了して実際に使う](#) ← サイドバーでAPIキーを設定してください
+    """)
 
 # シンプルなフロー図
 st.markdown("""
@@ -225,11 +363,24 @@ if search_button and search_term:
     if not keepa_key:
         st.error("❌ Keepa APIキーを入力してください")
     else:
-        # RainforestAPI + Keepa APIで動的検索
-        with st.spinner("Amazon商品を検索中..."):
+        # プログレストラッカー初期化
+        tracker = ProgressTracker()
+        progress_container = st.container()
+
+        with progress_container:
+            tracker.start(total_steps=4)
+
             try:
+                # STEP 1: RainforestAPIでASIN検索
+                tracker.update("RainforestAPIでキーワード検索中...")
                 analyzer = KeepaAnalyzerSimple(keepa_key, rainforest_api_key=rainforest_key)
+
+                # STEP 2: Keepa APIで商品データ取得
+                tracker.update("Keepa APIで商品データ取得中...")
                 results = analyzer.search_products(search_term)
+
+                # STEP 3: スコア計算
+                tracker.update("商品スコアを計算中...")
 
                 # フィルタリング処理（ベクトル化で高速化）
                 # 価格フィルタ
@@ -279,18 +430,26 @@ if search_button and search_term:
                 # フィルタリング実行
                 filtered_results = results[final_mask].copy()
 
+                # STEP 4: 結果を整形
+                tracker.update("検索結果を整形中...")
+
                 if len(filtered_results) > 0:
                     # スコア順にソート
                     filtered_results = filtered_results.sort_values('product_score', ascending=False).reset_index(drop=True)
                     st.session_state.search_results = filtered_results
+
+                    # 完了
+                    tracker.complete(f"✅ 完了！{len(filtered_results)}件の商品を発見しました")
                     st.success(f"✅ {len(filtered_results)}件の参入候補商品を発見しました！（商品選定スコア順に表示）")
                     if len(results) > len(filtered_results):
                         st.info(f"💡 詳細検索フィルタにより、{len(results) - len(filtered_results)}件の商品が除外されました")
                 else:
+                    tracker.complete("⚠️ 条件に合う商品が見つかりませんでした")
                     st.warning("⚠️ 条件に合う商品が見つかりませんでした。キーワードやフィルタ条件を変えてみてください。")
                     if len(results) > 0:
                         st.info(f"💡 {len(results)}件の商品が見つかりましたが、詳細検索フィルタの条件を満たしませんでした")
             except Exception as e:
+                tracker.error(f"エラーが発生しました: {str(e)}")
                 error_msg = str(e)
 
                 # Keepa APIのタイムアウトエラー
@@ -331,6 +490,66 @@ if search_button and search_term:
 
 # 結果表示
 if st.session_state.search_results is not None and len(st.session_state.search_results) > 0:
+    st.divider()
+
+    # Next Actionガイド
+    top_score = st.session_state.search_results.iloc[0]['product_score']
+    top_asin = st.session_state.search_results.iloc[0]['asin']
+
+    st.markdown("## 🎯 推奨アクション")
+
+    if top_score >= 80:
+        st.success("""
+        ### 🔥 超推奨商品を発見！
+
+        **トップ商品スコア**: {score}点 - これは非常に魅力的な参入機会です！
+
+        **次のステップ**:
+        1. 上位3商品のレビューを収集して問題点を特定
+        2. AI分析で改善提案を取得
+        3. 改良版の試作品を検討
+
+        👇 今すぐレビュー収集を開始することをお勧めします
+        """.format(score=int(top_score)))
+    elif top_score >= 60:
+        st.info("""
+        ### ⭐ 参入価値あり
+
+        **トップ商品スコア**: {score}点 - 慎重な調査で成功の可能性があります
+
+        **次のステップ**:
+        1. レビュー収集で市場の問題点を把握
+        2. 競合の詳細調査
+        3. 収益性シミュレーションで判断
+
+        👇 まずはレビュー分析から始めてください
+        """.format(score=int(top_score)))
+    elif top_score >= 40:
+        st.warning("""
+        ### ✅ 慎重に検討すべき
+
+        **トップ商品スコア**: {score}点 - リスクとリターンのバランスを精査が必要です
+
+        **推奨アクション**:
+        - 別のキーワードも試してみる
+        - 詳細フィルタで条件を変更
+        - レビューで具体的な問題点を確認
+
+        👇 より高スコアの商品を探すことをお勧めします
+        """.format(score=int(top_score)))
+    else:
+        st.error("""
+        ### ⚠️ 参入非推奨
+
+        **トップ商品スコア**: {score}点 - このカテゴリへの参入はリスクが高いです
+
+        **推奨アクション**:
+        - **別のキーワードで検索**: より良い機会を探す
+        - **フィルタ条件を見直す**: 検索範囲を広げる
+
+        現状では参入をお勧めしません。
+        """.format(score=int(top_score)))
+
     st.divider()
     st.subheader("🎯 参入候補商品 TOP5（選定スコア順）")
     st.caption("💡 スコアが高いほど「この商品カテゴリに参入すべき」と判断できます")
