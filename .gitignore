@@ -46,6 +46,13 @@ Thumbs.db
 
 # Debug files
 keepa_debug.txt
+sample_reviews.csv
+nul
+
+# Cache
+.cache/
+*.db
+*.db-journal
 
 # Logs
 *.log
