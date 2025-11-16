@@ -5,6 +5,7 @@ import keepa
 import pandas as pd
 import numpy as np
 import requests
+from .cache_manager import get_cache_manager
 
 
 class KeepaAnalyzerSimple:
@@ -20,10 +21,11 @@ class KeepaAnalyzerSimple:
         """
         self.api = keepa.Keepa(api_key, timeout=60)  # タイムアウトを60秒に延長
         self.rainforest_api_key = rainforest_api_key
+        self.cache = get_cache_manager()  # キャッシュマネージャー
 
     def _search_asins_with_rainforest(self, keyword, max_results=10):
         """
-        RainforestAPIでキーワード検索してASINを取得
+        RainforestAPIでキーワード検索してASINを取得（キャッシュ対応）
 
         Args:
             keyword (str): 検索キーワード
@@ -35,6 +37,12 @@ class KeepaAnalyzerSimple:
         if not self.rainforest_api_key:
             print("[INFO] RainforestAPIキーが未設定のため、固定ASINリストを使用します")
             return None
+
+        # キャッシュチェック
+        cached = self.cache.get('rainforest_search', ttl_hours=1, keyword=keyword, max_results=max_results)
+        if cached:
+            print(f"[CACHE HIT] キャッシュから{len(cached)}件のASINを取得")
+            return cached
 
         try:
             print(f"[INFO] RainforestAPIで「{keyword}」を検索中...")
@@ -57,6 +65,11 @@ class KeepaAnalyzerSimple:
                         asins.append(result['asin'])
 
             print(f"[SUCCESS] RainforestAPIから{len(asins)}件のASINを取得しました")
+
+            # キャッシュに保存(TTL: 1時間)
+            if len(asins) > 0:
+                self.cache.set(asins, 'rainforest_search', ttl_hours=1, keyword=keyword, max_results=max_results)
+
             return asins if len(asins) > 0 else None
 
         except Exception as e:

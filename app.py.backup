@@ -23,24 +23,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# APIキー取得ヘルパー関数(セキュリティ強化)
-def get_api_key(key_name):
-    """
-    優先順位:
-    1. Streamlit Secrets (本番環境推奨)
-    2. 環境変数 (.env ファイル)
-    3. 空文字列(ユーザー入力待ち)
-    """
-    try:
-        # Streamlit Secretsから取得
-        if hasattr(st, 'secrets') and 'api_keys' in st.secrets:
-            return st.secrets['api_keys'].get(key_name, '')
-    except:
-        pass
-
-    # 環境変数から取得
-    return os.getenv(key_name, '')
-
 # セッション状態初期化
 if 'search_results' not in st.session_state:
     st.session_state.search_results = None
@@ -53,30 +35,21 @@ if 'analysis' not in st.session_state:
 with st.sidebar:
     st.title("⚙️ 設定")
 
-    st.info("💡 APIキーはStreamlit Secretsまたは.envファイルで管理することを推奨します。[セットアップガイド](SECURITY_SETUP.md)")
-
-    # APIキーの取得(Streamlit Secrets → .env → ユーザー入力の優先順位)
-    default_keepa = get_api_key('KEEPA_API_KEY')
-    default_rainforest = get_api_key('RAINFOREST_API_KEY')
-    default_claude = get_api_key('CLAUDE_API_KEY')
-
+    # 環境変数から読み込み or ユーザー入力
     keepa_key = st.text_input(
-        "Keepa API Key" + (" ✓" if default_keepa else ""),
-        value=default_keepa,
-        type="password",
-        help="Streamlit Secretsまたは.envで設定済みの場合、再入力不要"
+        "Keepa API Key",
+        value=os.getenv('KEEPA_API_KEY', ''),
+        type="password"
     )
     rainforest_key = st.text_input(
-        "RainforestAPI Key" + (" ✓" if default_rainforest else ""),
-        value=default_rainforest,
-        type="password",
-        help="Streamlit Secretsまたは.envで設定済みの場合、再入力不要"
+        "RainforestAPI Key",
+        value=os.getenv('RAINFOREST_API_KEY', ''),
+        type="password"
     )
     claude_key = st.text_input(
-        "Claude API Key" + (" ✓" if default_claude else ""),
-        value=default_claude,
-        type="password",
-        help="Streamlit Secretsまたは.envで設定済みの場合、再入力不要"
+        "Claude API Key",
+        value=os.getenv('CLAUDE_API_KEY', ''),
+        type="password"
     )
 
     st.divider()
@@ -231,58 +204,73 @@ if search_button and search_term:
                 analyzer = KeepaAnalyzerSimple(keepa_key, rainforest_api_key=rainforest_key)
                 results = analyzer.search_products(search_term)
 
-                # フィルタリング処理（ベクトル化で高速化）
-                # 価格フィルタ
-                price_mask = (results['price'] >= filters['price'][0]) & (results['price'] <= filters['price'][1])
+                # フィルタリング処理
+                filtered_results = []
+                for _, product in results.iterrows():
+                    # 価格
+                    if not (filters['price'][0] <= product.get('price', 0) <= filters['price'][1]):
+                        continue
 
-                # 月間販売数フィルタ
-                monthly_mask = (results['monthly_sold_current'] >= filters['monthly_current'][0]) & \
-                              (results['monthly_sold_current'] <= filters['monthly_current'][1])
+                    # 月間販売数（今月）
+                    if not (filters['monthly_current'][0] <= product.get('monthly_sold_current', 0) <= filters['monthly_current'][1]):
+                        continue
 
-                # 成長トレンドフィルタ
-                growth_mask = pd.Series([True] * len(results), index=results.index)
+                    # 成長トレンド（チェックボックス）
+                    if filters['growth_3m']:
+                        # 3ヶ月前より売れているかチェック
+                        current = product.get('monthly_sold_current', 0)
+                        past_3m = product.get('monthly_sold_3m_ago', 0)
+                        if past_3m > 0 and current <= past_3m:
+                            continue  # 成長していない
 
-                if filters['growth_3m']:
-                    growth_mask &= (results['monthly_sold_3m_ago'] > 0) & \
-                                  (results['monthly_sold_current'] > results['monthly_sold_3m_ago'])
+                    if filters['growth_6m']:
+                        # 6ヶ月前より売れているかチェック
+                        current = product.get('monthly_sold_current', 0)
+                        past_6m = product.get('monthly_sold_6m_ago', 0)
+                        if past_6m > 0 and current <= past_6m:
+                            continue  # 成長していない
 
-                if filters['growth_6m']:
-                    growth_mask &= (results['monthly_sold_6m_ago'] > 0) & \
-                                  (results['monthly_sold_current'] > results['monthly_sold_6m_ago'])
+                    if filters['growth_12m']:
+                        # 1年前より売れているかチェック
+                        current = product.get('monthly_sold_current', 0)
+                        past_12m = product.get('monthly_sold_12m_ago', 0)
+                        if past_12m > 0 and current <= past_12m:
+                            continue  # 成長していない
 
-                if filters['growth_12m']:
-                    growth_mask &= (results['monthly_sold_12m_ago'] > 0) & \
-                                  (results['monthly_sold_current'] > results['monthly_sold_12m_ago'])
+                    if filters['growth_24m']:
+                        # 2年前より売れているかチェック
+                        current = product.get('monthly_sold_current', 0)
+                        past_24m = product.get('monthly_sold_24m_ago', 0)
+                        if past_24m > 0 and current <= past_24m:
+                            continue  # 成長していない
 
-                if filters['growth_24m']:
-                    growth_mask &= (results['monthly_sold_24m_ago'] > 0) & \
-                                  (results['monthly_sold_current'] > results['monthly_sold_24m_ago'])
+                    # BSR（ランキング）
+                    bsr = product.get('current_rank', 0)
+                    if bsr > 0:  # BSRが0の場合はデータなしなのでスキップしない
+                        if not (filters['bsr'][0] <= bsr <= filters['bsr'][1]):
+                            continue
 
-                # BSRフィルタ
-                bsr_mask = ((results['current_rank'] >= filters['bsr'][0]) & \
-                           (results['current_rank'] <= filters['bsr'][1])) | \
-                          (results['current_rank'] == 0)
+                    # 評価
+                    if not (filters['rating'][0] <= product.get('rating', 0) <= filters['rating'][1]):
+                        continue
 
-                # 評価フィルタ
-                rating_mask = (results['rating'] >= filters['rating'][0]) & \
-                             (results['rating'] <= filters['rating'][1])
+                    # レビュー数（何件以上）
+                    if product.get('review_count', 0) < filters['review_min']:
+                        continue
 
-                # レビュー数フィルタ
-                review_mask = results['review_count'] >= filters['review_min']
+                    # 新規出品者数（何社以下）
+                    if product.get('seller_count', 0) > filters['seller_max']:
+                        continue
 
-                # 出品者数フィルタ
-                seller_mask = results['seller_count'] <= filters['seller_max']
-
-                # 全フィルタを結合
-                final_mask = price_mask & monthly_mask & growth_mask & bsr_mask & rating_mask & review_mask & seller_mask
-
-                # フィルタリング実行
-                filtered_results = results[final_mask].copy()
+                    # すべての条件を満たした商品を追加
+                    filtered_results.append(product)
 
                 if len(filtered_results) > 0:
-                    # スコア順にソート
-                    filtered_results = filtered_results.sort_values('product_score', ascending=False).reset_index(drop=True)
-                    st.session_state.search_results = filtered_results
+                    # DataFrameに変換してソート
+                    import pandas as pd
+                    df = pd.DataFrame(filtered_results)
+                    df = df.sort_values('product_score', ascending=False).reset_index(drop=True)
+                    st.session_state.search_results = df
                     st.success(f"✅ {len(filtered_results)}件の参入候補商品を発見しました！（商品選定スコア順に表示）")
                     if len(results) > len(filtered_results):
                         st.info(f"💡 詳細検索フィルタにより、{len(results) - len(filtered_results)}件の商品が除外されました")
