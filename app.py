@@ -576,19 +576,18 @@ if st.session_state.search_results is not None and len(st.session_state.search_r
 
         table_data.append({
             '順位': f"{idx}位 {recommendation}",
-            '商品名': row['title'][:40] + "..." if len(row['title']) > 40 else row['title'],
+            '商品名': row['title'][:35] + "..." if len(row['title']) > 35 else row['title'],
             'スコア': f"{score}点",
-            '現単価': f"¥{row['price']:,.0f}" if row['price'] > 0 else "-",
-            '最安': f"¥{row.get('lowest_price', 0):,.0f}" if row.get('lowest_price', 0) > 0 else "-",
-            '新規数': f"{row.get('seller_count', 0)}社",
+            '利益率': f"{row.get('profit_margin', 0):.1f}%",
+            '純利益': f"¥{row.get('net_profit', 0):,.0f}/個" if row.get('net_profit', 0) != 0 else "-",
+            'ROI': f"{row.get('roi', 0):.0f}%",
+            '単価': f"¥{row['price']:,.0f}" if row['price'] > 0 else "-",
+            '月間市場': f"¥{row.get('monthly_market_size', 0)/1000000:.1f}M" if row.get('monthly_market_size', 0) > 0 else "-",
+            '今月販売': f"{row.get('monthly_sold_current', 0):,}個",
+            '成長率': f"{row.get('sales_growth_rate', 0):+.0f}%",
+            '競合': f"{row.get('seller_count', 0)}社",
             'レビュー': f"{row.get('review_count', 0):,}件",
-            '評価': f"⭐{row['rating']:.1f}",
-            'BSR': f"{row.get('current_rank', 0):,}" if row.get('current_rank', 0) > 0 else "-",
-            '今月': f"{row.get('monthly_sold_current', 0):,}個",
-            '3ヶ月前': f"{row.get('monthly_sold_3m_ago', 0):,}個" if row.get('monthly_sold_3m_ago', 0) > 0 else "-",
-            '6ヶ月前': f"{row.get('monthly_sold_6m_ago', 0):,}個" if row.get('monthly_sold_6m_ago', 0) > 0 else "-",
-            '1年前': f"{row.get('monthly_sold_12m_ago', 0):,}個" if row.get('monthly_sold_12m_ago', 0) > 0 else "-",
-            '2年前': f"{row.get('monthly_sold_24m_ago', 0):,}個" if row.get('monthly_sold_24m_ago', 0) > 0 else "-"
+            '評価': f"⭐{row['rating']:.1f}"
         })
 
     df_table = pd.DataFrame(table_data)
@@ -620,42 +619,78 @@ if st.session_state.search_results is not None and len(st.session_state.search_r
 
             st.divider()
 
-            # 総合評価の内訳
-            st.markdown("##### 📊 総合評価の内訳")
+            # 総合評価の内訳（v2.0 新スコアリング）
+            st.markdown("##### 📊 総合評価の内訳（v2.0）")
             score_col1, score_col2, score_col3, score_col4 = st.columns(4)
 
             with score_col1:
-                trend_score = row.get('trend_score', 0)
-                st.metric("📈 販売トレンド", f"{trend_score}/40点")
-                st.caption("成長率が高いほど高得点")
-                growth = row.get('sales_growth_rate', 0)
-                st.caption(f"成長率: {growth:+.1f}%")
+                profitability_score = row.get('profitability_score', 0)
+                st.metric("💵 収益性", f"{profitability_score}/35点")
+                profit_margin = row.get('profit_margin', 0)
+                roi_val = row.get('roi', 0)
+                net_profit = row.get('net_profit', 0)
+
+                # 利益率の評価
+                if profit_margin >= 25:
+                    profit_status = "🟢 優秀"
+                elif profit_margin >= 15:
+                    profit_status = "🟡 標準"
+                else:
+                    profit_status = "🔴 低い"
+
+                st.caption(f"{profit_status} 利益率: {profit_margin:.1f}%")
+                st.caption(f"ROI: {roi_val:.1f}%")
+                st.caption(f"純利益: ¥{net_profit:,.0f}/個")
 
             with score_col2:
                 market_score = row.get('market_score', 0)
-                st.metric("💰 市場規模", f"{market_score}/30点")
-                st.caption("販売数が多いほど高得点")
-                st.caption(f"今月: {row.get('monthly_sold_current', 0):,}個")
-                if row.get('monthly_sold_3m_ago', 0) > 0:
-                    st.caption(f"3ヶ月前: {row.get('monthly_sold_3m_ago', 0):,}個")
-                if row.get('monthly_sold_6m_ago', 0) > 0:
-                    st.caption(f"6ヶ月前: {row.get('monthly_sold_6m_ago', 0):,}個")
-                if row.get('monthly_sold_12m_ago', 0) > 0:
-                    st.caption(f"1年前: {row.get('monthly_sold_12m_ago', 0):,}個")
-                if row.get('monthly_sold_24m_ago', 0) > 0:
-                    st.caption(f"2年前: {row.get('monthly_sold_24m_ago', 0):,}個")
+                st.metric("💰 市場魅力度", f"{market_score}/25点")
+                monthly_market = row.get('monthly_market_size', 0)
+                st.caption("金額ベースの市場規模")
+                st.caption(f"月間: ¥{monthly_market:,.0f}")
+                st.caption(f"販売数: {row.get('monthly_sold_current', 0):,}個/月")
+                st.caption(f"単価: ¥{row.get('price', 0):,}")
 
             with score_col3:
-                improvement_score = row.get('improvement_score', 0)
-                st.metric("🔧 改善余地", f"{improvement_score}/20点")
-                st.caption("評価が低いほど高得点")
-                st.caption(f"評価: ⭐{row['rating']:.1f}")
+                competition_score = row.get('competition_score', 0)
+                st.metric("🏃 競合難易度", f"{competition_score}/20点")
+
+                # 競合状況の評価
+                seller_count = row.get('seller_count', 0)
+                review_count = row.get('review_count', 0)
+
+                if seller_count <= 10 and review_count < 500:
+                    comp_status = "🟢 参入しやすい"
+                elif seller_count <= 30 and review_count < 1000:
+                    comp_status = "🟡 標準的"
+                else:
+                    comp_status = "🔴 競争激化"
+
+                st.caption(f"{comp_status}")
+                st.caption(f"出品者: {seller_count}社")
+                st.caption(f"レビュー: {review_count:,}件")
 
             with score_col4:
-                entry_score = row.get('entry_score', 0)
-                st.metric("🚪 参入難易度", f"{entry_score}/10点")
-                st.caption("競合が少ないほど高得点")
-                st.caption(f"新規: {row.get('seller_count', 0)}社")
+                growth_score = row.get('growth_score', 0)
+                st.metric("📈 成長性", f"{growth_score}/20点")
+
+                # 成長トレンドの表示
+                growth = row.get('sales_growth_rate', 0)
+                if growth > 50:
+                    trend_status = "🚀 急成長"
+                elif growth > 0:
+                    trend_status = "📈 成長中"
+                else:
+                    trend_status = "📉 減少傾向"
+
+                st.caption(f"{trend_status}")
+                st.caption(f"6ヶ月成長率: {growth:+.1f}%")
+
+                # 販売数推移
+                current_sold = row.get('monthly_sold_current', 0)
+                if row.get('monthly_sold_6m_ago', 0) > 0:
+                    st.caption(f"現在: {current_sold:,}個")
+                    st.caption(f"6ヶ月前: {row.get('monthly_sold_6m_ago', 0):,}個")
 
             st.divider()
 

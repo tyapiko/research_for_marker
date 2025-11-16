@@ -337,36 +337,222 @@ class KeepaAnalyzerSimple:
                         print(f"[WARNING] 月間販売数の計算エラー: {e}")
                         sales_growth_rate = 0
 
-                    # 商品選定スコア計算（100点満点）
-                    product_score = 0
+                    # ========================================
+                    # 収益性スコア計算（35点）NEW!
+                    # ========================================
+                    profitability_score = 0
+                    profit_margin = 0
+                    roi = 0
+                    net_profit = 0
 
-                    # 1. 販売トレンドスコア（40点）
-                    if sales_growth_rate > 100:
-                        trend_score = 40
-                    elif sales_growth_rate > 50:
-                        trend_score = 30
-                    elif sales_growth_rate > 20:
-                        trend_score = 20
-                    elif sales_growth_rate > 0:
-                        trend_score = 10
-                    else:
-                        trend_score = 0
+                    if price > 0:
+                        # コスト推定（簡易版）
+                        product_cost = price * 0.60  # 原価60%
+                        shipping_cost = price * 0.15  # 配送費15%
+                        amazon_fee = price * 0.15  # Amazon手数料15%
+                        fba_fee = 350  # FBA手数料（平均）
 
-                    # 2. 市場規模スコア（30点）- 月間販売数
-                    if monthly_sold_current >= 5000:
-                        market_score = 30
-                    elif monthly_sold_current >= 3000:
+                        # 純利益計算
+                        net_profit = price - product_cost - shipping_cost - amazon_fee - fba_fee
+
+                        # 利益率(%)
+                        profit_margin = (net_profit / price) * 100 if price > 0 else 0
+
+                        # ROI(%) = 純利益 / (原価+配送費)
+                        investment = product_cost + shipping_cost
+                        roi = (net_profit / investment) * 100 if investment > 0 else 0
+
+                        # 利益率スコア（20点）
+                        if profit_margin >= 30:
+                            profit_score = 20
+                        elif profit_margin >= 25:
+                            profit_score = 17
+                        elif profit_margin >= 20:
+                            profit_score = 14
+                        elif profit_margin >= 15:
+                            profit_score = 10
+                        elif profit_margin >= 10:
+                            profit_score = 5
+                        else:
+                            profit_score = 0  # 10%未満は推奨しない
+
+                        # ROIスコア（15点）
+                        if roi >= 100:
+                            roi_score = 15
+                        elif roi >= 75:
+                            roi_score = 12
+                        elif roi >= 50:
+                            roi_score = 9
+                        elif roi >= 30:
+                            roi_score = 6
+                        elif roi >= 15:
+                            roi_score = 3
+                        else:
+                            roi_score = 0
+
+                        profitability_score = profit_score + roi_score
+
+                    # ========================================
+                    # 市場魅力度スコア計算（25点）IMPROVED!
+                    # ========================================
+                    market_score = 0
+                    monthly_market_size = monthly_sold_current * price
+
+                    # 月間市場規模（金額ベース）
+                    if monthly_market_size >= 30000000:  # ¥30M/月
                         market_score = 25
-                    elif monthly_sold_current >= 1000:
-                        market_score = 20
-                    elif monthly_sold_current >= 500:
-                        market_score = 15
-                    elif monthly_sold_current >= 100:
+                    elif monthly_market_size >= 20000000:  # ¥20M/月
+                        market_score = 22
+                    elif monthly_market_size >= 10000000:  # ¥10M/月
+                        market_score = 18
+                    elif monthly_market_size >= 5000000:  # ¥5M/月
+                        market_score = 14
+                    elif monthly_market_size >= 2000000:  # ¥2M/月
                         market_score = 10
+                    elif monthly_market_size >= 500000:  # ¥500K/月
+                        market_score = 6
                     else:
-                        market_score = 5
+                        market_score = 2
 
-                    # 3. 改善余地スコア（20点）- 評価が低いほど改善余地あり
+                    # 価格帯調整（¥2,000-7,000が最適）
+                    if 2000 <= price <= 7000:
+                        pass  # 調整なし
+                    elif 1000 <= price < 2000 or 7000 < price <= 15000:
+                        market_score = int(market_score * 0.9)  # 10%減点
+                    else:
+                        market_score = int(market_score * 0.7)  # 30%減点
+
+                    market_score = min(market_score, 25)
+
+                    # ========================================
+                    # 競合難易度スコア計算（20点）IMPROVED!
+                    # ========================================
+                    competition_score = 0
+
+                    # 出品者数スコア（10点）
+                    if 0 < seller_count <= 3:
+                        seller_score = 10
+                    elif 4 <= seller_count <= 10:
+                        seller_score = 8
+                    elif 11 <= seller_count <= 30:
+                        seller_score = 6
+                    elif 31 <= seller_count <= 50:
+                        seller_score = 4
+                    elif 51 <= seller_count <= 100:
+                        seller_score = 2
+                    elif seller_count > 100:
+                        seller_score = 1
+                    else:
+                        seller_score = 5  # データなし
+
+                    # レビュー数スコア（10点）- トップ商品のレビュー数
+                    if 0 < review_count < 100:
+                        review_score = 10  # 少ない=参入しやすい
+                    elif 100 <= review_count < 500:
+                        review_score = 8
+                    elif 500 <= review_count < 1000:
+                        review_score = 6
+                    elif 1000 <= review_count < 3000:
+                        review_score = 4
+                    elif review_count >= 3000:
+                        review_score = 2  # 非常に多い=参入困難
+                    else:
+                        review_score = 5  # データなし
+
+                    competition_score = seller_score + review_score
+
+                    # ========================================
+                    # 成長スコア計算（20点）IMPROVED!
+                    # ========================================
+                    growth_score = 0
+
+                    # 短期成長（直近6ヶ月、10点）
+                    if monthly_sold_6m_ago > 0 and monthly_sold_current > 0:
+                        short_term_growth = ((monthly_sold_current - monthly_sold_6m_ago) / monthly_sold_6m_ago) * 100
+
+                        if short_term_growth > 100:
+                            short_score = 10
+                        elif short_term_growth > 50:
+                            short_score = 8
+                        elif short_term_growth > 20:
+                            short_score = 6
+                        elif short_term_growth > 0:
+                            short_score = 4
+                        else:
+                            short_score = 2
+
+                        growth_score += short_score
+
+                    # 長期成長（過去24ヶ月→現在、10点）
+                    if monthly_sold_24m_ago > 0 and monthly_sold_current > 0:
+                        long_term_growth = ((monthly_sold_current - monthly_sold_24m_ago) / monthly_sold_24m_ago) * 100
+
+                        if long_term_growth > 200:
+                            long_score = 10
+                        elif long_term_growth > 100:
+                            long_score = 8
+                        elif long_term_growth > 50:
+                            long_score = 6
+                        elif long_term_growth > 20:
+                            long_score = 4
+                        elif long_term_growth > 0:
+                            long_score = 2
+                        else:
+                            long_score = 0
+
+                        growth_score += long_score
+                    elif monthly_sold_12m_ago > 0 and monthly_sold_current > 0:
+                        # 24ヶ月データがない場合は12ヶ月で代用
+                        mid_term_growth = ((monthly_sold_current - monthly_sold_12m_ago) / monthly_sold_12m_ago) * 100
+
+                        if mid_term_growth > 100:
+                            mid_score = 10
+                        elif mid_term_growth > 50:
+                            mid_score = 7
+                        elif mid_term_growth > 20:
+                            mid_score = 5
+                        elif mid_term_growth > 0:
+                            mid_score = 3
+                        else:
+                            mid_score = 0
+
+                        growth_score += mid_score
+
+                    # ========================================
+                    # 総合スコア計算（100点満点）
+                    # ========================================
+                    product_score = profitability_score + market_score + competition_score + growth_score
+
+                    # ========================================
+                    # 旧スコアリングも保持（比較用）
+                    # ========================================
+                    # 1. 販売トレンドスコア（40点）- 旧版
+                    if sales_growth_rate > 100:
+                        trend_score_old = 40
+                    elif sales_growth_rate > 50:
+                        trend_score_old = 30
+                    elif sales_growth_rate > 20:
+                        trend_score_old = 20
+                    elif sales_growth_rate > 0:
+                        trend_score_old = 10
+                    else:
+                        trend_score_old = 0
+
+                    # 2. 市場規模スコア（30点）- 月間販売数（旧版）
+                    if monthly_sold_current >= 5000:
+                        market_score_old = 30
+                    elif monthly_sold_current >= 3000:
+                        market_score_old = 25
+                    elif monthly_sold_current >= 1000:
+                        market_score_old = 20
+                    elif monthly_sold_current >= 500:
+                        market_score_old = 15
+                    elif monthly_sold_current >= 100:
+                        market_score_old = 10
+                    else:
+                        market_score_old = 5
+
+                    # 3. 改善余地スコア（20点）- 評価が低いほど改善余地あり（旧版）
                     if 0 < rating < 3.5:
                         improvement_score = 20
                     elif 3.5 <= rating < 4.0:
@@ -378,23 +564,24 @@ class KeepaAnalyzerSimple:
                     else:
                         improvement_score = 0
 
-                    # 4. 参入難易度スコア（10点）- 新品出品者数（競合の少なさ）
+                    # 4. 参入難易度スコア（10点）- 新品出品者数（競合の少なさ）（旧版）
                     if 0 < seller_count <= 3:  # 1-3社: ブルーオーシャン
-                        entry_score = 10
+                        entry_score_old = 10
                     elif 4 <= seller_count <= 10:  # 4-10社: 競合少なめ
-                        entry_score = 7
+                        entry_score_old = 7
                     elif 11 <= seller_count <= 30:  # 11-30社: 普通
-                        entry_score = 5
+                        entry_score_old = 5
                     elif 31 <= seller_count <= 50:  # 31-50社: 競合多め
-                        entry_score = 3
+                        entry_score_old = 3
                     elif seller_count > 50:  # 51社以上: レッドオーシャン
-                        entry_score = 1
+                        entry_score_old = 1
                     else:  # データなし
-                        entry_score = 5  # 中間値
+                        entry_score_old = 5  # 中間値
 
-                    product_score = trend_score + market_score + improvement_score + entry_score
+                    product_score_old = trend_score_old + market_score_old + improvement_score + entry_score_old
 
                     results.append({
+                        # 基本情報
                         'asin': asin,
                         'title': title,
                         'price': price,
@@ -403,17 +590,34 @@ class KeepaAnalyzerSimple:
                         'rating': rating,
                         'current_rank': current_rank,
                         'seller_count': seller_count,
+
+                        # 販売データ
                         'monthly_sold_current': monthly_sold_current,
                         'monthly_sold_3m_ago': monthly_sold_3m_ago,
                         'monthly_sold_6m_ago': monthly_sold_6m_ago,
                         'monthly_sold_12m_ago': monthly_sold_12m_ago,
                         'monthly_sold_24m_ago': monthly_sold_24m_ago,
                         'sales_growth_rate': sales_growth_rate,
-                        'product_score': product_score,
-                        'trend_score': trend_score,
-                        'market_score': market_score,
+
+                        # 新スコアリング（v2.0）
+                        'product_score': product_score,  # 総合スコア（100点）
+                        'profitability_score': profitability_score,  # 収益性（35点）
+                        'market_score': market_score,  # 市場魅力度（25点）
+                        'competition_score': competition_score,  # 競合難易度（20点）
+                        'growth_score': growth_score,  # 成長スコア（20点）
+
+                        # 収益性の詳細
+                        'profit_margin': profit_margin,  # 利益率(%)
+                        'roi': roi,  # ROI(%)
+                        'net_profit': net_profit,  # 純利益(円)
+                        'monthly_market_size': monthly_market_size,  # 月間市場規模(円)
+
+                        # 旧スコアリング（v1.0 比較用）
+                        'product_score_old': product_score_old,
+                        'trend_score': trend_score_old,
+                        'market_score_old': market_score_old,
                         'improvement_score': improvement_score,
-                        'entry_score': entry_score,
+                        'entry_score': entry_score_old,
                     })
 
                     print(f"[OK] {asin}: {title[:30]}... 価格: {price}円")

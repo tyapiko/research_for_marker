@@ -95,23 +95,35 @@ The app uses a 3-tier priority for API keys:
 - Categorizes problems into 6 categories (delivery, specs, design, quality, service, price)
 - Generates improvement proposals and new product concepts
 
-### Product Scoring Algorithm (100 points)
+### Product Scoring Algorithm v2.0 (100 points)
 
-**1. Sales Trend Score (40 points)**
-- Compares current monthly sales vs. 6 months ago
-- +100% growth = 40pts, +50% = 30pts, +20% = 20pts, +0% = 10pts
+**Version History**:
+- v1.0 (Legacy): 40/30/20/10 distribution - Missing profitability analysis
+- **v2.0 (Current)**: 35/25/20/20 distribution - Profitability-first approach
 
-**2. Market Size Score (30 points)**
-- Based on current monthly sales volume
-- 5000+ = 30pts, 3000+ = 25pts, 1000+ = 20pts, 500+ = 15pts
+**1. Profitability Score (35 points)** - NEW!
+- Profit Margin (20pts): 30%+ = 20pts, 25-30% = 17pts, 20-25% = 14pts, 15-20% = 10pts, <10% = 0pts
+- ROI (15pts): 100%+ = 15pts, 75-100% = 12pts, 50-75% = 9pts, <15% = 0pts
+- Cost structure: Product cost 60%, Shipping 15%, Amazon fee 15%, FBA fee ¥350 avg
 
-**3. Improvement Potential Score (20 points)**
-- Lower ratings indicate more room for improvement
-- ★<3.5 = 20pts, ★3.5-3.9 = 15pts, ★4.0-4.2 = 10pts
+**2. Market Attractiveness Score (25 points)** - IMPROVED
+- Revenue-based market size (monthly_sold × price)
+- ¥30M+/month = 25pts, ¥20-30M = 22pts, ¥10-20M = 18pts, ¥5-10M = 14pts
+- Price range adjustment: ¥2,000-7,000 optimal (no penalty), outside range = -10% to -30%
 
-**4. Entry Difficulty Score (10 points)**
-- Based on competitor count (COUNT_NEW from Keepa)
-- 1-3 sellers = 10pts (blue ocean), 4-10 = 7pts, 11-30 = 5pts
+**3. Competition Difficulty Score (20 points)** - IMPROVED
+- Seller count (10pts): 1-3 sellers = 10pts, 4-10 = 8pts, 11-30 = 6pts, 100+ = 1pt
+- Review count (10pts): <100 = 10pts (easy entry), 500-1000 = 6pts, 3000+ = 2pts (hard entry)
+
+**4. Growth Score (20 points)** - IMPROVED
+- Short-term growth (6 months, 10pts): +100% = 10pts, +50% = 8pts, +20% = 6pts
+- Long-term growth (24 months, 10pts): +200% = 10pts, +100% = 8pts, +50% = 6pts
+- Fallback to 12-month data if 24-month unavailable
+
+**Why v2.0?**
+- v1.0 fatal flaw: Recommended products with -10% profit margin (e.g., ¥500 phone case with 5000/month sales scored 51pts)
+- v2.0 automatically filters unprofitable products (profit margin <10% = 0pts)
+- See [SCORING_ALGORITHM_V2.md](SCORING_ALGORITHM_V2.md) for detailed comparison
 
 ### Keepa API Data Processing
 
